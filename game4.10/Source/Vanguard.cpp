@@ -1,0 +1,116 @@
+#include "stdafx.h"
+#include "Resource.h"
+#include <mmsystem.h>
+#include <ddraw.h>
+#include "audio.h"
+#include "gamelib.h"
+#include "Enemy.h"
+#include "Projectile.h"
+#include "Tower.h"
+#include "Vanguard.h"
+#include <string>
+
+namespace game_framework {
+	Vanguard::Vanguard() : Tower() {
+		atk_speed = 1.5;
+		MaxSp = 10;
+		iconX = 352;
+		cost = 12;
+		projectile.SetPicNumber(IDB_PROJECTILE);
+		projectile.SetDmg(10);
+		MaxBlockCount = 2;
+		MaxHp = 150;
+	}
+
+	void Vanguard::LoadBitmap() {
+		icon.LoadBitmap(IDB_TEXAS, RGB(255, 255, 255));
+		char_l.LoadBitmap(IDB_TEXAS_L, RGB(255, 255, 255));
+		char_r.LoadBitmap(IDB_TEXAS_R, RGB(255, 255, 255));
+		projectile.LoadBitmap();
+		hpBar.LoadBitmap();
+		Tower::IconReset();
+	}
+
+	void Vanguard::OnMove() {
+		if (IsActive) {
+			for (int i = 0; i < time.size(); i++) {
+				if (hp[i] > 0) {
+					if (target[i] != nullptr && Range(pos[i].first, target[i]->x, pos[i].second, target[i]->y) <= 48 * 4 && target[i]->isAlive()) {
+						if (Attackable(i, 1000 / atk_speed)) {
+							Attack(i);
+							sp[i]++;
+							hp[i] -= 10 * blockCount[i];
+							//OutputDebugString(_T((to_string(skill[i].first) + " ").c_str()));
+						}
+						if (sp[i] == MaxSp) {
+							*currentCost += 10;
+							sp[i] = 0;
+						}
+					}
+
+					for (int j = 0; j < blockedEnemies.size(); j++) {
+						if (!blockedEnemies[j]->isAlive()) {
+							enemies[j]->isBlocked = false;
+							blockedEnemies.erase(blockedEnemies.begin() + j);
+							j--;
+							blockCount[i]--;
+						}
+					}
+					for (int j = 0; j < enemies.size(); j++) {
+						if (blockCount[i] < MaxBlockCount && enemies[j]->isAlive() && !enemies[j]->isBlocked && Range(pos[i].first, enemies[j]->x, pos[i].second, enemies[j]->y) < 48) {
+							enemies[j]->isBlocked = true;
+							blockedEnemies.push_back(enemies[j]);
+							blockCount[i]++;
+						}
+					}
+				}
+				else {
+					for (int j = 0; j < blockedEnemies.size(); j++)
+						blockedEnemies[j]->isBlocked = false;
+					blockedEnemies.clear();
+					for (int j = 0; j < blockCount.size(); j++)
+						blockCount[j] = 0;
+				}
+			}
+			projectile.OnMove();
+		}
+	}
+
+	void Vanguard::OnShow() {
+		icon.ShowBitmap();
+		for (int i = 0; i < pos.size(); i++) {
+			hpBar.Set(pos[i].first, pos[i].second, hp[i], MaxHp);
+			hpBar.OnShow();
+		}
+		Tower::OnShow();
+	}
+
+	void Vanguard::SetCost(int *cost) {
+		currentCost = cost;
+	}
+
+	bool Vanguard::IsInRange(int selfX, int selfY, int targetX, int targetY) {
+		switch (int(direction))
+		{
+		case 0:
+			if (targetX >= selfX - 48 && targetX <= selfX + 96 && targetY >= selfY - 132 && targetY <= selfY + 60)
+				return true;
+			break;
+		case 1:
+			if (targetX >= selfX - 48 && targetX <= selfX + 96 && targetY >= selfY + 12 && targetY <= selfY + 192)
+				return true;
+			break;
+		case 2:
+			if (targetX >= selfX - 144 && targetX <= selfX + 48 && targetY >= selfY - 36 && targetY <= selfY + 108)
+				return true;
+			break;
+		case 3:
+			if (targetX >= selfX && targetX <= selfX + 192 && targetY >= selfY - 36 && targetY <= selfY + 108)
+				return true;
+			break;
+		default:
+			break;
+		}
+		return false;
+	}
+}
